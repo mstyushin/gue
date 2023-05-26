@@ -11,10 +11,7 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/instrument"
-	"go.opentelemetry.io/otel/metric/instrument/syncint64"
-	"go.opentelemetry.io/otel/metric/nonrecording"
-	"go.opentelemetry.io/otel/metric/unit"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/vgarvardt/gue/v4/adapter"
 )
@@ -24,21 +21,22 @@ import (
 var ErrMissingType = errors.New("job type must be specified")
 
 var (
-	attrJobType = attribute.Key("job-type")
-	attrSuccess = attribute.Key("success")
+	attrJobType = "job-type"
+	attrSuccess = "success"
 )
 
 // Client is a Gue client that can add jobs to the queue and remove jobs from
 // the queue.
 type Client struct {
-	pool    adapter.ConnPool
-	logger  adapter.Logger
+	pool   adapter.ConnPool
+	logger adapter.Logger
+
 	id      string
 	backoff Backoff
 	meter   metric.Meter
 
-	mEnqueue syncint64.Counter
-	mLockJob syncint64.Counter
+	mEnqueue metric.Int64Counter
+	mLockJob metric.Int64Counter
 }
 
 // NewClient creates a new Client that uses the pgx pool.
@@ -47,7 +45,7 @@ func NewClient(pool adapter.ConnPool, options ...ClientOption) (*Client, error) 
 		pool:    pool,
 		logger:  adapter.NoOpLogger{},
 		backoff: DefaultExponentialBackoff,
-		meter:   nonrecording.NewNoopMeterProvider().Meter("noop"),
+		meter:   noop.NewMeterProvider().Meter("noop"),
 	}
 
 	for _, option := range options {
@@ -106,8 +104,12 @@ VALUES
 		adapter.F("queue", j.Queue),
 		adapter.F("id", j.ID),
 	)
+	labels := []attribute.KeyValue{
+		attribute.String(attrJobType, j.Type),
+		attribute.Bool(attrSuccess, (err == nil)),
+	}
 
-	c.mEnqueue.Add(ctx, 1, attrJobType.String(j.Type), attrSuccess.Bool(err == nil))
+	c.mEnqueue.Add(ctx, 1, metric.WithAttributes(labels...))
 
 	return err
 }
@@ -179,7 +181,11 @@ LIMIT 1 FOR UPDATE SKIP LOCKED`
 func (c *Client) execLockJob(ctx context.Context, handleErrNoRows bool, sql string, args ...any) (*Job, error) {
 	tx, err := c.pool.Begin(ctx)
 	if err != nil {
-		c.mLockJob.Add(ctx, 1, attrJobType.String(""), attrSuccess.Bool(false))
+		labels := []attribute.KeyValue{
+			attribute.String(attrJobType, ""),
+			attribute.Bool(attrSuccess, false),
+		}
+		c.mLockJob.Add(ctx, 1, metric.WithAttributes(labels...))
 		return nil, err
 	}
 
@@ -196,7 +202,11 @@ func (c *Client) execLockJob(ctx context.Context, handleErrNoRows bool, sql stri
 		&j.LastError,
 	)
 	if err == nil {
-		c.mLockJob.Add(ctx, 1, attrJobType.String(j.Type), attrSuccess.Bool(true))
+		labels := []attribute.KeyValue{
+			attribute.String(attrJobType, j.Type),
+			attribute.Bool(attrSuccess, true),
+		}
+		c.mLockJob.Add(ctx, 1, metric.WithAttributes(labels...))
 		return &j, nil
 	}
 
@@ -209,18 +219,18 @@ func (c *Client) execLockJob(ctx context.Context, handleErrNoRows bool, sql stri
 }
 
 func (c *Client) initMetrics() (err error) {
-	if c.mEnqueue, err = c.meter.SyncInt64().Counter(
+	if c.mEnqueue, err = c.meter.Int64Counter(
 		"gue_client_enqueue",
-		instrument.WithDescription("Number of jobs being enqueued"),
-		instrument.WithUnit(unit.Dimensionless),
+		metric.WithDescription("Number of jobs being enqueued"),
+		metric.WithUnit("1"),
 	); err != nil {
 		return fmt.Errorf("could not register mEnqueue metric: %w", err)
 	}
 
-	if c.mLockJob, err = c.meter.SyncInt64().Counter(
+	if c.mLockJob, err = c.meter.Int64Counter(
 		"gue_client_lock_job",
-		instrument.WithDescription("Number of jobs being locked (consumed)"),
-		instrument.WithUnit(unit.Dimensionless),
+		metric.WithDescription("Number of jobs being locked (consumed)"),
+		metric.WithUnit("1"),
 	); err != nil {
 		return fmt.Errorf("could not register mLockJob metric: %w", err)
 	}
