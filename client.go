@@ -13,7 +13,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/noop"
 
-	"github.com/vgarvardt/gue/v4/adapter"
+	"github.com/mstyushin/gue/v4/adapter"
 )
 
 // ErrMissingType is returned when you attempt to enqueue a job with no Type

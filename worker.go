@@ -15,7 +15,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/vgarvardt/gue/v4/adapter"
+	"github.com/mstyushin/gue/v4/adapter"
 )
 
 // PollStrategy determines how the DB is queried for the next job to work on

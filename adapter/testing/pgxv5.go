@@ -7,8 +7,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vgarvardt/gue/v4/adapter"
-	"github.com/vgarvardt/gue/v4/adapter/pgxv5"
+	"github.com/mstyushin/gue/v4/adapter"
+	"github.com/mstyushin/gue/v4/adapter/pgxv5"
 )
 
 // OpenTestPoolMaxConnsPGXv5 opens connections pool used in testing
@@ -24,7 +24,7 @@ func OpenTestPoolMaxConnsPGXv5(t testing.TB, maxConnections int32) adapter.ConnP
 
 	connPoolConfig.MaxConns = maxConnections
 
-	poolPGXv5, err := pgxpool.ConnectConfig(context.Background(), connPoolConfig)
+	poolPGXv5, err := pgxpool.NewWithConfig(context.Background(), connPoolConfig)
 	require.NoError(t, err)
 
 	pool := pgxv5.NewConnPool(poolPGXv5)

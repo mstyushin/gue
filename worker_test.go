@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/vgarvardt/gue/v4/adapter"
-	adapterTesting "github.com/vgarvardt/gue/v4/adapter/testing"
+	"github.com/mstyushin/gue/v4/adapter"
+	adapterTesting "github.com/mstyushin/gue/v4/adapter/testing"
 )
 
 type mockHook struct {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgtype"
 
-	"github.com/vgarvardt/gue/v4/adapter"
+	"github.com/mstyushin/gue/v4/adapter"
 )
 
 // JobPriority is the wrapper type for Job.Priority
